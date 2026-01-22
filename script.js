@@ -1,3 +1,33 @@
+// Load tracks từ remote
+const TRACKS_URL = 'https://raw.githubusercontent.com/d4m-dev/media/refs/heads/main/load-track/tracks.js';
+
+const normalizeTracks = (items = []) => items.map((item) => ({
+    name: item.title || item.name || 'Tạm thời chưa có!',
+    artist: item.artist || 'Tạm thời chưa có!',
+    artwork: item.cover || item.artwork || 'Tạm thời chưa có!',
+    path: item.audioSrc || item.path || 'Tạm thời chưa có!',
+    instrumental: item.instrumentalSrc || item.instrumental || 'Tạm thời chưa có!',
+    vid: item.videoSrc || item.vid || 'Tạm thời chưa có!',
+    lyric: item.lyricSrc || item.lyric || 'Tạm thời chưa có!'
+}));
+
+const loadRemoteTracks = async () => {
+    if (Array.isArray(window.TRACKS) && window.TRACKS.length) return window.TRACKS;
+    try {
+        const res = await fetch(TRACKS_URL, { cache: 'no-store' });
+        const text = await res.text();
+        const sandbox = {};
+        const getter = new Function('window', `${text}; return window.TRACKS || [];`);
+        const data = getter(sandbox);
+        return Array.isArray(data) ? data : [];
+    } catch (e) {
+        console.error('Lỗi khi tải tracks:', e);
+        return [];
+    }
+};
+
+let tracks = [];
+
 // DOM Elements
 const audioPlayer = document.getElementById('audio-player');
 const progressBar = document.getElementById('progress-bar');
@@ -35,7 +65,16 @@ let isShuffle = false;
 let isRepeat = false;
 
 // Initialize player
-function initPlayer() {
+async function initPlayer() {
+    // Load tracks từ remote trước
+    const remoteTracks = await loadRemoteTracks();
+    tracks = normalizeTracks(remoteTracks);
+    
+    if (tracks.length === 0) {
+        console.error('Không có tracks nào được tải');
+        return;
+    }
+    
     renderPlaylist();
     loadTrack(currentTrackIndex);
     setupEventListeners();
